@@ -1,0 +1,73 @@
+# image-gen configuration.
+#
+# Asset kinds are defined here and nowhere else: adding a kind means adding a
+# block below, and the CLI and HTTP API pick it up with no code change.
+
+backend: stub            # stub | local_diffusers | slurm_remote
+out_dir: out
+
+backend_options:
+  dtype: float16
+  max_loaded_pipelines: 1   # evict the previous pipeline when switching kinds
+
+  # Reserved, NOT implemented. Documented here so the keys are stable when
+  # low-VRAM support is added; setting them today raises a clear error.
+  enable_cpu_offload: false
+  attention_slicing: false
+  vae_tiling: false
+
+kinds:
+  skybox:
+    model:
+      base: stabilityai/stable-diffusion-xl-base-1.0
+      # Pinned by `image-gen download-weights` on a machine with internet.
+      # Left null deliberately: no revision is guessed.
+      base_revision: null
+      # sd_xl_base_1.0.safetensors and sd_xl_base_1.0_0.9vae.safetensors are
+      # standalone single-file checkpoints, ~6.9 GB each. from_pretrained()
+      # reads the unet/ vae/ text_encoder*/ subfolders instead and never
+      # touches them, so skipping both roughly halves the download.
+      download_ignore:
+        - "sd_xl_base_1.0*.safetensors"
+      # This repo has NO model_index.json, so from_pretrained() on it fails.
+      # Only the UNet is in diffusers format -- it gets swapped into base SDXL.
+      unet_repo: ProGamerGov/sdxl-360-diffusion
+      unet_subfolder: unet
+      unet_revision: 35658524f37857b18c9f10529c68b0d5ba5c5202
+
+    # The model needs this trigger phrase. Applied only if absent already.
+    prompt_prefix: "equirectangular 360 view, "
+    prompt_prefix_markers:
+      - "equirectangular 360 view"
+      - "equirectangular"
+      - "360 panorama"
+
+    aspect_ratio: 2.0       # equirectangular must be 2:1; validated at load
+
+    defaults:
+      width: 2048
+      height: 1024
+      steps: 30
+      guidance: 7.0
+      negative_prompt: "people, text, watermark, buildings, distorted horizon"
+
+    # stub_file: assets/stub/skybox.png   # optional: use a real image instead
+    #                                     # of the drawn placeholder
+
+  image:
+    model:
+      base: stabilityai/stable-diffusion-xl-base-1.0
+      base_revision: null
+
+    prompt_prefix: ""
+
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 30
+      guidance: 7.0
+      negative_prompt: "text, watermark"
+
+    # stub_file: assets/stub/image.png
+
+  # texture: reserved for tiling textures -- no model chosen yet.

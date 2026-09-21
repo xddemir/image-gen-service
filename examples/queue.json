@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "defaults": {
+    "steps": 30,
+    "guidance": 7.0
+  },
+  "scenes": [
+    {
+      "scene_id": "p07",
+      "seed": 1234,
+      "assets": [
+        {
+          "kind": "skybox",
+          "prompt": "a calm misty forest clearing at dawn, soft diffuse light"
+        },
+        {
+          "kind": "image",
+          "prompt": "a smooth river stone, moss on one edge",
+          "seed": 5678
+        }
+      ]
+    },
+    {
+      "scene_id": "p08",
+      "seed": 9012,
+      "assets": [
+        {
+          "kind": "skybox",
+          "prompt": "a quiet alpine lake at dusk, still water, distant peaks"
+        },
+        {
+          "kind": "image",
+          "prompt": "a weathered wooden bench"
+        }
+      ]
+    },
+    {
+      "scene_id": "p09",
+      "seed": 3456,
+      "steps": 40,
+      "assets": [
+        {
+          "kind": "skybox",
+          "prompt": "equirectangular 360 view, a warm desert canyon at golden hour",
+          "negative_prompt": "people, text, watermark, distorted horizon"
+        }
+      ]
+    }
+  ]
+}

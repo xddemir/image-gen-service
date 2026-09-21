@@ -1,0 +1,22 @@
+# Generated assets. Reproducible from queue.json + a pinned revision, so they
+# are outputs, not sources.
+out/
+
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+.pytest_cache/
+.coverage
+htmlcov/
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# configs/revisions.lock.json is deliberately NOT ignored: pinned model
+# revisions are part of the reproducibility claim and belong in version control.
