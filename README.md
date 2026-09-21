@@ -381,8 +381,8 @@ class ImageGenerator(Protocol):
 | Backend | Runs where | Status |
 |---|---|---|
 | `stub` | anywhere, no GPU | **implemented** — the default |
-| `local_diffusers` | inside the sbatch job | planned (step 4) |
-| `slurm_remote` | your machine; submits + fetches | planned (step 6) |
+| `local_diffusers` | on a GPU node | **implemented**, not yet verified on a GPU |
+| `slurm_remote` | your machine; submits + fetches | planned |
 
 `BaseGenerator` owns everything except the pixels — parameter resolution, prompt prefixing, paths,
 metadata, failure handling. A backend implements only:
@@ -458,7 +458,7 @@ path-traversal refusal.
 | 1 | core, kind config, stub backend, metadata | done |
 | 2 | CLI: `gen`, `run`, `status`, `merge-manifest`, `validate` | done |
 | 3 | FastAPI wrapper | done |
-| 4 | `LocalDiffusersGenerator` | next |
-| 5 | sbatch scripts for Pegasus | |
-| 6 | `SlurmRemoteGenerator` + gateway | |
-| 7 | `scene_gen` — SceneSpec → prompts + Unity payload | |
+| 5 | `LocalDiffusersGenerator` | code done, awaiting first GPU run |
+| 6 | sbatch scripts for Pegasus | next |
+| 7 | `SlurmRemoteGenerator` + gateway | |
+| 8 | `scene_gen` — SceneSpec → prompts + Unity payload | |
