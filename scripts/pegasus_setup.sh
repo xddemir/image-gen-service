@@ -134,6 +134,29 @@ fi
 
 python -c 'import image_gen; print("  image_gen", image_gen.__version__)'
 
+if [[ "$WITH_GPU" -eq 1 ]]; then
+    # Importing image_gen never pulls in torch -- backends are imported lazily
+    # -- so this is the first thing that actually exercises it.
+    if python -c 'import torch' >/dev/null 2>&1; then
+        python - <<'EOF'
+import torch
+print("  torch", torch.__version__, "| cuda available:", torch.cuda.is_available())
+EOF
+    else
+        warn "torch installed but cannot be imported on THIS machine."
+        cat <<'EOF'
+  Expected on a login node: these are often VMs whose CPU model masks SSE4.2,
+  so they do not meet the x86-64-v2 baseline the numpy 2.x wheels are built
+  against. Nothing to fix -- installing and downloading here is fine (both are
+  pure Python); run anything that imports torch on a compute node, where the
+  same venv works.
+
+  Confirm with:  grep -oE 'sse4_2|popcnt|cx16' /proc/cpuinfo | sort -u
+  (empty on the login node, populated on a compute node)
+EOF
+    fi
+fi
+
 # --------------------------------------------------------------- weights
 
 if [[ "$WITH_WEIGHTS" -eq 1 ]]; then

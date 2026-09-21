@@ -129,6 +129,24 @@ failed. `sacct` surfaces these per array task.
 
 ## Things that bite on this cluster
 
+- **numpy and torch cannot be imported on the login node.** `login1` is a VM
+  with a conservative CPU model that masks SSE4.2, so it does not meet
+  **x86-64-v2** — the baseline numpy 2.x wheels are built against:
+
+  ```
+  RuntimeError: NumPy was built with baseline optimizations:
+  (X86_V2) but your machine doesn't support: (X86_V2).
+  ```
+
+  Confirm with `grep -oE 'sse4_2|popcnt|cx16' /proc/cpuinfo | sort -u` — it
+  comes back empty on the login node and populated on any compute node. This is
+  not something to fix: install and download on the login node (both are pure
+  Python), and run anything that imports torch on a compute node. The same venv
+  on `/netscratch` works there, because it is the CPU that differs, not the
+  wheel. A first failed import can also surface as the misleading
+  `ImportError: cannot load module more than once per process`; re-run with
+  `python -E` to see the real cause.
+
 - **`$HOME` is capped at 10 GB.** Venvs, weights and outputs all go on
   `/netscratch`. `pegasus_setup.sh` enforces this.
 - **Compute nodes have no internet.** Anything needing a download happens on the
