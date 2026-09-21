@@ -1,37 +1,46 @@
 # Running image-gen on Pegasus
 
-## Before anything: values you have to look up
+## Confirmed cluster values
 
-These are **site-specific** and are not guessed anywhere in this repo. A wrong
-partition name or image path fails in a confusing way, so find the real values
-first and fill them into the placeholders.
+Observed on Pegasus, September 2026. Re-check with the command in the right
+column if something stops working.
 
-| What | How to find it |
-|---|---|
-| Container images | `ls -la /enroot/*.sqsh` |
-| Partitions + limits | `sinfo -o "%20P %10l %10G %20N"` — name, timelimit, GRES, nodes |
-| How GPUs are requested | `scontrol show partition <name>` — look at `TRES`; decides `--gpus=1` vs `--gres=gpu:1` |
-| Your account / QoS | `sacctmgr show assoc user=$USER format=account,partition,qos%30` |
-| Your scratch path | `ls -d /netscratch/$USER` |
-| Default Python in a container | `srun --container-image=… --pty python3 --version` |
+| What | Value | Verify with |
+|---|---|---|
+| Account | `ei-external` | `sacctmgr show assoc user=$USER format=account,partition,qos%30` |
+| GPU request syntax | `--gres=gpu:N` | `sinfo -o "%20P %12l %18G"` — GRES reads `gpu:8`, no type name |
+| Partition (recommended) | `RTXA6000` — 48 GB, 3-day limit, 13 nodes | `sinfo -o "%20P %12l %18G %8D %T"` |
+| Other usable partitions | `A100-80GB`, `A100-40GB`, `RTX3090`, `V100-32GB` | as above |
+| Interactive limits | `--time ≤ 8h`, `--immediate ≤ 3600`, both **required** | the `cli_filter` error message |
+| Batch time limit | 3 days (A100/RTX), 1 day (H100/H200/B200) | `sinfo` TIMELIMIT column |
+| Scratch | `/netscratch/$USER`, BeeGFS, ~248 T free | `df -h /netscratch/$USER` |
+| Login node Python | 3.12.3 — but see the numpy trap below | `python3 --version` |
+| Package index | local mirror at `http://pypi-cache/index`, very fast | pip output |
+| Container images | `ls -la /enroot/*.sqsh`; `cuda12.4python3.10.sqsh` is a candidate | |
 
-Write down what you find — every later script needs them.
+SDXL needs ~12 GB of VRAM, so any of those partitions works. `RTXA6000` is the
+pick because it has by far the most nodes, and queue time is what actually costs
+you.
 
-## Getting into a container
+## Do you need a container?
 
-Enroot/Pyxis, not Docker. Everything below assumes a container, because the bare
-login node may not have a usable Python.
+Not so far. The login node has Python 3.12.3, and the venv on `/netscratch` is
+readable from compute nodes, so `pegasus_setup.sh` runs without Enroot and jobs
+reuse the same venv.
+
+A container becomes worth it if a compute node's CUDA driver disagrees with the
+pip-installed torch, or you need a Python that the login node lacks. In that
+case build the venv **inside** the container, since a venv hardcodes the
+interpreter that created it:
 
 ```bash
-srun \
+srun --partition=RTXA6000 --gres=gpu:1 --account=ei-external \
+  --time=02:00:00 --immediate=600 \
   --container-image=/enroot/<IMAGE>.sqsh \
   --container-mounts=/netscratch/$USER:/netscratch/$USER,"$PWD":"$PWD" \
   --container-workdir="$PWD" \
   --pty bash
 ```
-
-Replace `<IMAGE>`. A CUDA/PyTorch image is the right base once you get to step 5;
-for the environment smoke test, anything with Python ≥3.10 works.
 
 ## Step 1 — set up the environment (login node, has internet)
 
@@ -58,11 +67,16 @@ reproducibility claim.
 
 ## Step 2 — prompt iteration (interactive, has a GPU)
 
-Once `LocalDiffusersGenerator` exists (build step 5). Interactive jobs cap at
-4 h, which is plenty for iterating and no use at all for a long-lived service.
+Interactive jobs cap at 8 h — plenty for iterating, no use for a long-lived
+service.
+
+A `cli_filter` plugin rejects interactive jobs that omit these: `--pty` requires
+`--time` of at most **8 hours** and `--immediate` of at most **3600** seconds.
+`--immediate` is how long srun waits for an allocation before giving up.
 
 ```bash
-srun --gpus=1 --partition=<PARTITION> \
+srun --partition=RTXA6000 --gres=gpu:1 --account=ei-external \
+  --time=02:00:00 --immediate=600 \
   --container-image=/enroot/<IMAGE>.sqsh \
   --container-mounts=/netscratch/$USER:/netscratch/$USER \
   --pty bash
@@ -152,8 +166,10 @@ failed. `sacct` surfaces these per array task.
 - **Compute nodes have no internet.** Anything needing a download happens on the
   login node. Set `HF_HUB_OFFLINE=1` in jobs so a missing file fails loudly
   instead of hanging on a connection attempt.
-- **Interactive jobs cap at 4 h**, so a long-running server here is not the main
-  path — batch is.
+- **Interactive jobs cap at 8 h** and must pass `--time` and `--immediate`
+  explicitly, or `cli_filter` rejects them. Batch partitions allow far longer
+  (3 days on the A100/RTX partitions), so a long-running server is still not the
+  main path — batch is.
 - **Queue time is unpredictable.** Submitting is not starting. This is why
   generation cannot sit on a participant's critical path.
 - **Shell scripts need LF line endings.** Edited on Windows, a `.sh` file can
